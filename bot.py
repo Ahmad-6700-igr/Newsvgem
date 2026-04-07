@@ -4,15 +4,14 @@ import feedparser
 import requests
 import re
 from bs4 import BeautifulSoup
-import google.generativeai as genai
+from google import genai
 
 # ===== ENV =====
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-1.5-flash")
+client = genai.Client(api_key=GEMINI_API_KEY)
 
 # ===== RSS =====
 RSS_FEEDS = [
@@ -65,28 +64,38 @@ def get_best_news():
 
     return sorted(articles, reverse=True)[0]
 
-# ===== AI FUNCTIONS =====
+# ===== AI FUNCTIONS (FIXED GENAI) =====
+def ai_generate(prompt):
+    try:
+        res = client.models.generate_content(
+            model="gemini-1.5-flash",
+            contents=prompt
+        )
+        return res.text
+    except Exception as e:
+        return f"AI Error: {e}"
+
 def ai_translate(text):
-    res = model.generate_content(f"Translate to Indonesian:\n{text}")
-    return res.text
+    return ai_generate(f"Translate to Indonesian:\n{text}")
 
 def ai_summary(text):
-    res = model.generate_content(f"Summarize in 5 bullet points:\n{text}")
-    return res.text
+    return ai_generate(f"Summarize into 5 bullet points:\n{text}")
 
 def ai_opinion(text):
-    res = model.generate_content(f"Give expert opinion about this tech news:\n{text}")
-    return res.text
+    return ai_generate(f"Give expert opinion about this tech news:\n{text}")
 
 # ===== SEND TELEGRAM =====
 def send_message(text):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    requests.post(url, data={
-        "chat_id": CHAT_ID,
-        "text": text
-    })
+    try:
+        requests.post(url, data={
+            "chat_id": CHAT_ID,
+            "text": text
+        })
+    except Exception as e:
+        print("Telegram Error:", e)
 
-# ===== MAIN LOOP (1 JAM) =====
+# ===== MAIN LOOP =====
 def run_session():
     start = time.time()
 
@@ -113,14 +122,14 @@ def run_session():
 
 🧠 Opini:
 {opinion}
-            """
+"""
 
             send_message(message)
 
-            time.sleep(900)  # kirim tiap 15 menit
+            time.sleep(900)  # tiap 15 menit
 
         except Exception as e:
-            print("Error:", e)
+            print("Loop Error:", e)
             time.sleep(60)
 
 if __name__ == "__main__":
