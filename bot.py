@@ -68,7 +68,7 @@ def get_best_news():
 def ai_generate(prompt):
     try:
         res = client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-2.5-flash",
             contents=prompt
         )
         return res.text
